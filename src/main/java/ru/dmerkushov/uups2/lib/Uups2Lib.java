@@ -5,10 +5,12 @@
  */
 package ru.dmerkushov.uups2.lib;
 
-import java.util.prefs.Preferences;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import ru.dmerkushov.signals4j.Signal;
 import ru.dmerkushov.signals4j.Signals4j;
 import ru.dmerkushov.uups2.lib.message.Uups2RegularMessageReceivedSignal;
+import ru.dmerkushov.uups2.ups1fallback.Ups1Fallback;
 
 /**
  *
@@ -16,31 +18,38 @@ import ru.dmerkushov.uups2.lib.message.Uups2RegularMessageReceivedSignal;
  */
 public class Uups2Lib {
 
-	public static final String PEER_HOST;
-	public static final int PEER_UPS_PORT;
-	public static final int PEER_UUPS_PORT;
+	private ErrorSlot errorSlot;
+	public final Ups1Fallback ups1;
 
-	static {
-		PEER_HOST = Preferences.userNodeForPackage (Uups2Lib.class).get ("PEER_HOST", "127.0.0.1");
-		PEER_UPS_PORT = Preferences.userNodeForPackage (Uups2Lib.class).getInt ("PEER_UPS_PORT", 0);
-		PEER_UUPS_PORT = Preferences.userNodeForPackage (Uups2Lib.class).getInt ("PEER_UUPS_PORT", 0);
-	}
+	////////////////////////////////////////////////////////////////////////////
+	// Uups2Lib is a singleton class
+	////////////////////////////////////////////////////////////////////////////
+	private static Uups2Lib _instance;
 
-	private static Uups2Lib instance = null;
-
+	/**
+	 * Get the single instance of Uups2Lib
+	 *
+	 * @return The same instance of Uups2Lib every time the method is called
+	 */
 	public static synchronized Uups2Lib getInstance () {
-		if (instance == null) {
-			instance = new Uups2Lib ();
+		if (_instance == null) {
+			_instance = new Uups2Lib ();
 		}
-
-		return instance;
+		return _instance;
 	}
-
-	private ErrorSlot errorSlot = new ErrorSlot ();
 
 	private Uups2Lib () {
+		errorSlot = new ErrorSlot ();
 		Signals4j.getInstance ().connect (ErrorSignal.class, errorSlot);
+
+		try {
+			ups1 = new Ups1Fallback (InetAddress.getByName (Uups2LibConfig.LOCALPEER_HOST), Uups2LibConfig.LOCALPEER_UPS_PORT);
+		} catch (UnknownHostException ex) {
+			throw new RuntimeException (ex);
+		}
+
 	}
+	////////////////////////////////////////////////////////////////////////////
 
 	public ErrorSlot getErrorSlot () {
 		return errorSlot;
